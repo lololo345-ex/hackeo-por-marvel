@@ -1,440 +1,656 @@
 
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Hackeo por Marvel</title>
 <style>
+:root{--cyan:#37e7ff;--blue:#497cff;--pink:#ff4fba;--bg:#070b16;--line:rgba(95,190,255,.28)}
 *{box-sizing:border-box}
-body{margin:0;overflow:hidden;background:#101827;color:white;font-family:Arial}
+body{margin:0;overflow:hidden;background:var(--bg);color:#eff7ff;font:14px system-ui,Arial}
+#game{position:fixed;inset:0}
 canvas{display:block}
-#ui{
- position:fixed;top:12px;left:12px;width:280px;padding:15px;
- background:#101a2bee;border:1px solid #46617f;border-radius:13px;z-index:2
-}
-h2{font-size:20px;color:#e62429;margin:0 0 12px}
-.stat{margin:8px 0;font-size:14px}
-button{
- width:100%;padding:11px;margin-top:7px;border:0;border-radius:8px;
- background:#c51d29;color:white;font-weight:bold;cursor:pointer
-}
-button:hover{background:#ed2939}
+.panel{background:linear-gradient(145deg,rgba(16,27,53,.94),rgba(5,10,23,.92));border:1px solid var(--line);box-shadow:0 10px 35px #0008;border-radius:13px;backdrop-filter:blur(9px)}
+#top{position:fixed;top:14px;left:14px;right:14px;display:flex;justify-content:space-between;gap:12px;pointer-events:none}
+.brand{padding:10px 15px;min-width:230px}
+.brand b{font-size:18px;letter-spacing:1.5px;color:var(--cyan)}
+.brand small{display:block;color:#8ca8c9}
+.stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.stat{padding:9px 13px;min-width:115px}
+.stat small{display:block;color:#89a6ca;font-size:10px;text-transform:uppercase}
+.stat strong{font-size:16px}
+#left{position:fixed;left:14px;top:104px;width:205px;padding:13px}
+#right{position:fixed;right:14px;top:104px;width:230px;padding:13px}
+h3{margin:0 0 10px;color:var(--cyan);font-size:12px;letter-spacing:1.4px}
+button{width:100%;border:1px solid #3289b9;background:linear-gradient(100deg,#12395c,#14264c);color:#effaff;padding:10px;border-radius:8px;margin:5px 0;cursor:pointer;font-weight:650;text-align:left}
+button:hover{border-color:var(--cyan);filter:brightness(1.2)}
 button:disabled{opacity:.4;cursor:not-allowed}
-#wall{background:#26364d;padding:10px;border-radius:8px;margin-top:12px}
-#outer{height:13px;background:#536176;border-radius:10px;overflow:hidden;margin-top:7px}
-#inner{height:100%;width:100%;background:#e62429}
-#zone{
- position:fixed;top:12px;right:12px;background:#101a2bee;
- padding:12px;border-radius:10px;z-index:2
+.muted{color:#8ea6c5;font-size:11px}
+.value{color:white;font-weight:700}
+.bar{height:7px;background:#17243c;border-radius:20px;overflow:hidden;margin:7px 0 12px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#287aff,var(--cyan));width:0%}
+#bottom{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);padding:10px 16px;text-align:center;min-width:320px}
+#prompt{color:var(--cyan);font-weight:700}
+#toast{position:fixed;top:88px;left:50%;transform:translateX(-50%);padding:10px 16px;opacity:0;transition:.2s;pointer-events:none}
+#wallInfo{position:fixed;left:50%;top:48%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;text-shadow:0 2px 8px #000}
+#wallInfo strong{font-size:18px}
+.wallbar{width:270px;height:10px;background:#1a2338;border-radius:20px;margin:7px auto;overflow:hidden;border:1px solid #8acfff55}
+.wallbar i{display:block;height:100%;background:linear-gradient(90deg,#ff477b,#ffb347);width:100%}
+#modal{position:fixed;inset:0;background:#020611d9;display:flex;align-items:center;justify-content:center;padding:20px}
+#modal .box{max-width:560px;width:100%;padding:22px}
+.box h2{color:var(--cyan)}
+.box p{color:#b5c7df}
+@media(max-width:760px){
+#top{flex-direction:column}.brand{min-width:0}
+.stats{justify-content:flex-start}.stat{min-width:90px;padding:7px}
+#left{top:180px;width:155px;padding:9px}
+#right{top:180px;width:160px;padding:9px}
+button{font-size:11px;padding:8px}
+#bottom{bottom:8px;min-width:260px}
 }
-#help{
- position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
- background:#101a2bee;padding:10px 15px;border-radius:10px;
- font-size:13px;z-index:2;text-align:center
-}
-#message{font-size:12px;color:#b5d5ed;margin-top:9px;min-height:25px}
 </style>
 </head>
 <body>
+<div id="game"></div>
 
-<div id="ui">
-<h2>HACKEO POR MARVEL</h2>
-<div class="stat">Dinero: $<b id="money">1K</b></div>
-<div class="stat">Estela: <b id="speed">1</b></div>
-<div class="stat">Poder de hackeo: <b id="power">1</b></div>
-<div class="stat">Renacimientos: <b id="rebirths">0</b></div>
-<div class="stat">Multiplicador: <b id="multi">x1</b></div>
-
-<div id="wall">
-<b id="wallName">Barrera 1</b>
-<div class="stat">Vida: <b id="hp">50</b></div>
-<div id="outer"><div id="inner"></div></div>
-<div class="stat" id="status">Acércate a la barrera.</div>
+<div id="top">
+ <div class="brand panel">
+  <b>HACKEO POR MARVEL</b>
+  <small>SIMULADOR · SECTOR MULTIVERSO</small>
+ </div>
+ <div class="stats">
+  <div class="stat panel"><small>Dinero</small><strong id="money">$0</strong></div>
+  <div class="stat panel"><small>Poder de hackeo</small><strong id="power">1</strong></div>
+  <div class="stat panel"><small>Zona</small><strong id="zone">1 / 30</strong></div>
+  <div class="stat panel"><small>Renacimientos</small><strong id="rebirth">0 / 50</strong></div>
+ </div>
 </div>
 
-<button id="speedBtn">Mejorar estela</button>
-<button id="powerBtn">Mejorar poder</button>
-<button id="rebirthBtn">Renacer</button>
-<button id="nextBtn" disabled>Siguiente zona</button>
-<div id="message">Acércate a la barrera para hackearla.</div>
+<div id="left" class="panel">
+ <h3>MEJORAS</h3>
+ <div class="muted">Estela · velocidad</div>
+ <div class="value" id="speedLevel">Nivel 0</div>
+ <button id="speedBtn">Mejorar estela · $<span id="speedCost">100</span></button>
+ <div class="muted">Poder de hackeo</div>
+ <div class="value" id="hackLevel">Nivel 0</div>
+ <button id="hackBtn">Mejorar poder · $<span id="hackCost">250</span></button>
+ <hr style="border-color:#28405c33">
+ <h3>TU BASE</h3>
+ <div class="muted">Héroes conseguidos</div>
+ <div class="value" id="heroCount">0 / 1</div>
+ <button id="capacityBtn">Ampliar capacidad · $1M</button>
+ <button id="heroBtn">Reclamar héroe gratis</button>
+ <div class="muted">Tus héroes generan dinero automáticamente.</div>
 </div>
 
-<div id="zone">ZONA <b id="zoneNumber">1</b> / 30</div>
-<div id="help">WASD o flechas para moverte · Acércate a la barrera para hackear</div>
+<div id="right" class="panel">
+ <h3>PROGRESO</h3>
+ <div class="muted">Barrera actual</div>
+ <div class="value" id="wallName">Zona 1 · Barrera 1</div>
+ <div class="bar"><i id="zoneProgress"></i></div>
+ <button id="nextBtn" disabled>Entrar en la siguiente zona</button>
+ <button id="rebirthBtn">Renacer</button>
+ <button id="baseBtn">Volver a mi base</button>
+ <div class="muted" style="margin-top:8px">
+ WASD mover · Espacio saltar · Clic derecho + ratón girar cámara · Rueda zoom
+ </div>
+</div>
 
-<script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+<div id="wallInfo">
+ <strong id="wallHp">BARRERA · 50 HP</strong>
+ <div class="wallbar"><i id="wallFill"></i></div>
+ <span class="muted" id="hackStatus">Acércate para hackear automáticamente</span>
+</div>
 
+<div id="bottom" class="panel">
+ <span id="prompt">Acércate a la barrera para empezar a hackear</span>
+</div>
+<div id="toast" class="panel"></div>
+
+<div id="modal">
+ <div class="box panel">
+  <h2>HACKEO POR MARVEL</h2>
+  <p>Muévete por el escenario, rompe las barreras y desbloquea nuevas zonas. Consigue héroes para generar dinero y mejora tus estadísticas.</p>
+  <p>Esta es una primera versión jugable. Todavía no incluye multijugador real ni modelos oficiales de Marvel.</p>
+  <button id="closeModal">EMPEZAR A JUGAR</button>
+ </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+
+const fmt=n=>{
+ if(n>=1e18)return (n/1e18).toFixed(2)+'Qi';
+ if(n>=1e15)return (n/1e15).toFixed(2)+'Qa';
+ if(n>=1e12)return (n/1e12).toFixed(2)+'T';
+ if(n>=1e9)return (n/1e9).toFixed(2)+'B';
+ if(n>=1e6)return (n/1e6).toFixed(2)+'M';
+ if(n>=1e3)return (n/1e3).toFixed(1)+'K';
+ return Math.floor(n).toString();
+};
+
+const state={
+ money:0,power:1,zone:1,wall:0,rebirth:0,
+ speed:0,hack:0,capacity:1,heroes:[],
+ heroClaimed:false,wallHp:0,wallMax:0
+};
+
+const wallCount=z=>Math.min(z+2,10);
+
+function wallHealth(z,i){
+ if(z===5)return [1e6,1.5e6,2e6,2.5e6,3e6,3.5e6,4e6][i]||4e6;
+ if(z===6&&i===0)return 1e8;
+ if(z===30&&i===0)return 1e20;
+ if(z===1)return [50,100,150][i]||150;
+ if(z<5)return Math.floor(250*Math.pow(2.5,z-2)*(i+1));
+ if(z<6)return 5e6*(i+1);
+ return 1e8*Math.pow(3,z-6)*(i+1);
+}
+
+const hackCost=()=>Math.floor(250*Math.pow(2.1,state.hack));
+const speedCost=()=>Math.floor(100*Math.pow(1.8,state.speed));
+const rebirthNeed=()=>Math.floor(10000*Math.pow(3.1,state.rebirth));
+const capCost=()=>[1e6,1e9,5e11,1e12][state.capacity-1]||1e12;
+
+function toast(msg){
+ $('toast').textContent=msg;
+ $('toast').style.opacity=1;
+ clearTimeout(toast.t);
+ toast.t=setTimeout(()=>$('toast').style.opacity=0,1900);
+}
+
+// ESCENA 3D
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x91c9e8);
-scene.fog=new THREE.Fog(0x91c9e8,35,100);
+scene.background=new THREE.Color(0x070d1d);
+scene.fog=new THREE.Fog(0x070d1d,30,105);
 
-const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,300);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,500);
 const renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true;
-document.body.appendChild(renderer.domElement);
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+$('game').appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xffffff,0x506078,2));
+scene.add(new THREE.HemisphereLight(0x9bdcff,0x15152b,2));
 
-const sun=new THREE.DirectionalLight(0xffffff,2);
-sun.position.set(-8,15,10);
-sun.castShadow=true;
-scene.add(sun);
+const light=new THREE.DirectionalLight(0xffffff,2.4);
+light.position.set(-15,28,12);
+light.castShadow=true;
+scene.add(light);
 
-// Suelo
-const ground=new THREE.Mesh(
- new THREE.PlaneGeometry(100,150),
- new THREE.MeshStandardMaterial({color:0x263d53})
+const floor=new THREE.Mesh(
+ new THREE.PlaneGeometry(250,250),
+ new THREE.MeshStandardMaterial({color:0x101a30,metalness:.55,roughness:.65})
 );
-ground.rotation.x=-Math.PI/2;
-ground.position.z=-35;
-ground.receiveShadow=true;
-scene.add(ground);
+floor.rotation.x=-Math.PI/2;
+floor.receiveShadow=true;
+scene.add(floor);
 
-const grid=new THREE.GridHelper(100,50,0x4d829f,0x3a5c75);
-grid.position.set(0,.02,-35);
+const grid=new THREE.GridHelper(250,100,0x1b86ad,0x172a48);
+grid.position.y=.025;
 scene.add(grid);
 
-// Jugador
+const ringFloor=new THREE.Mesh(
+ new THREE.TorusGeometry(17,.13,8,100),
+ new THREE.MeshBasicMaterial({color:0x1aaed4})
+);
+ringFloor.rotation.x=Math.PI/2;
+ringFloor.position.y=.08;
+scene.add(ringFloor);
+
+function box(w,h,d,color,x,y,z,em=0){
+ const mesh=new THREE.Mesh(
+  new THREE.BoxGeometry(w,h,d),
+  new THREE.MeshStandardMaterial({
+   color,metalness:.35,roughness:.5,
+   emissive:color,emissiveIntensity:em
+  })
+ );
+ mesh.position.set(x,y,z);
+ mesh.castShadow=true;
+ mesh.receiveShadow=true;
+ scene.add(mesh);
+ return mesh;
+}
+
+function glow(x,y,z,r,color){
+ const mesh=new THREE.Mesh(
+  new THREE.SphereGeometry(r,16,12),
+  new THREE.MeshBasicMaterial({color})
+ );
+ mesh.position.set(x,y,z);
+ scene.add(mesh);
+ return mesh;
+}
+
+// PERSONAJE
 const player=new THREE.Group();
+scene.add(player);
 
 const body=new THREE.Mesh(
- new THREE.CapsuleGeometry(.45,.9,5,10),
- new THREE.MeshStandardMaterial({color:0xe62429,metalness:.3,roughness:.3})
+ new THREE.CapsuleGeometry(.48,.95,5,10),
+ new THREE.MeshStandardMaterial({
+  color:0x1e91bd,metalness:.4,roughness:.35,
+  emissive:0x07334d,emissiveIntensity:.4
+ })
 );
-body.position.y=1;
+body.position.y=1.1;
 body.castShadow=true;
 player.add(body);
 
 const head=new THREE.Mesh(
- new THREE.SphereGeometry(.33,16,16),
- new THREE.MeshStandardMaterial({color:0xffd9c5})
+ new THREE.SphereGeometry(.36,18,14),
+ new THREE.MeshStandardMaterial({color:0xe1c6aa,roughness:.8})
 );
-head.position.y=1.8;
+head.position.y=1.95;
+head.castShadow=true;
 player.add(head);
 
+const visor=new THREE.Mesh(
+ new THREE.BoxGeometry(.48,.12,.12),
+ new THREE.MeshBasicMaterial({color:0x37e7ff})
+);
+visor.position.set(0,2,.31);
+player.add(visor);
+
+const playerRing=new THREE.Mesh(
+ new THREE.TorusGeometry(.65,.035,8,40),
+ new THREE.MeshBasicMaterial({color:0x37e7ff})
+);
+playerRing.rotation.x=Math.PI/2;
+playerRing.position.y=.06;
+player.add(playerRing);
+
 player.position.set(0,0,7);
-scene.add(player);
 
-// Bases con vigas y cristales
-const crystalMat=new THREE.MeshStandardMaterial({
- color:0x42eaff,emissive:0x087caa,emissiveIntensity:1.3
-});
+// TRES BASES JUNTAS, SIN CRISTALES
+const plots=[];
 
-function createBase(x){
- const group=new THREE.Group();
- const metal=new THREE.MeshStandardMaterial({color:0x344e6b,metalness:.7});
+for(let i=0;i<3;i++){
+ const x=-16+i*16;
+ const z=15;
+ box(12,.45,10,[0x183d65,0x1b315a,0x24365f][i],x,.2,z);
 
- function beam(a,b){
-  const start=new THREE.Vector3(...a);
-  const end=new THREE.Vector3(...b);
-  const direction=new THREE.Vector3().subVectors(end,start);
-
-  const mesh=new THREE.Mesh(
-   new THREE.CylinderGeometry(.13,.13,direction.length(),8),metal
-  );
-
-  mesh.position.copy(start).add(end).multiplyScalar(.5);
-  mesh.quaternion.setFromUnitVectors(
-   new THREE.Vector3(0,1,0),direction.normalize()
-  );
-  mesh.castShadow=true;
-  group.add(mesh);
- }
-
- beam([-2,0,-1],[2,0,-1]);
- beam([-2,0,1],[2,0,1]);
- beam([-2,0,-1],[-2,0,1]);
- beam([2,0,-1],[2,0,1]);
- beam([-2,0,-1],[0,3,0]);
- beam([2,0,-1],[0,3,0]);
- beam([-2,0,1],[0,3,0]);
- beam([2,0,1],[0,3,0]);
- beam([0,3,0],[0,0,0]);
-
- const crystal=new THREE.Mesh(
-  new THREE.OctahedronGeometry(.6),crystalMat
- );
- crystal.position.set(0,1.5,0);
- group.add(crystal);
-
- group.position.set(x,0,10);
- scene.add(group);
-}
-
-createBase(-12);
-createBase(0);
-createBase(12);
-
-// Datos del juego
-const game={
- zone:1,wall:1,money:1000,speed:1,power:1,
- rebirths:0,damage:0,maxHP:50,unlocked:false
-};
-
-function fmt(n){
- if(n>=1e18)return (n/1e18).toFixed(2)+' Qi';
- if(n>=1e15)return (n/1e15).toFixed(2)+' Qa';
- if(n>=1e12)return (n/1e12).toFixed(2)+' T';
- if(n>=1e9)return (n/1e9).toFixed(2)+' B';
- if(n>=1e6)return (n/1e6).toFixed(2)+' M';
- if(n>=1e3)return (n/1e3).toFixed(2)+' K';
- return Math.floor(n).toLocaleString('es-ES');
-}
-
-function wallCount(z){
- return Math.min(z+2,10);
-}
-
-function firstHP(z){
- if(z===5)return 1000000;
- if(z<=4)return 50*Math.pow(20000,(z-1)/4);
- if(z===6)return 100000000;
- return 100000000*Math.pow(1e12,(z-6)/24);
-}
-
-function getHP(z,w){
- if(z===5)return 1000000+(w-1)*500000;
- return firstHP(z)*Math.pow(1.5,w-1);
-}
-
-let wallGroup;
-
-function createWall(){
- if(wallGroup)scene.remove(wallGroup);
-
- game.damage=0;
- game.maxHP=getHP(game.zone,game.wall);
- game.unlocked=false;
-
- wallGroup=new THREE.Group();
-
- const wall=new THREE.Mesh(
-  new THREE.BoxGeometry(9,5,.8),
-  new THREE.MeshStandardMaterial({
-   color:0x963fff,metalness:.4,roughness:.3,emissive:0x280052
+ const trim=new THREE.Mesh(
+  new THREE.BoxGeometry(12.2,.08,10.2),
+  new THREE.MeshBasicMaterial({
+   color:[0x37e7ff,0xff4fba,0x9d7cff][i]
   })
  );
- wall.position.y=2.5;
- wall.castShadow=true;
- wallGroup.add(wall);
+ trim.position.set(x,.46,z);
+ scene.add(trim);
 
- for(let x=-4;x<=4;x+=2){
-  const bar=new THREE.Mesh(
-   new THREE.BoxGeometry(.12,5.2,.95),
+ box(8,.2,1.2,0x263e61,x,1,z-4);
+
+ for(let j=0;j<5;j++){
+  const sx=x-4+j*2;
+  box(1.45,.25,1.45,0x344b70,sx,.62,z);
+
+  const hologram=new THREE.Mesh(
+   new THREE.OctahedronGeometry(.48,1),
    new THREE.MeshStandardMaterial({
-    color:0x4ceaff,emissive:0x087ca9
+    color:0x37e7ff,emissive:0x087ca0,
+    emissiveIntensity:1.2,metalness:.5,
+    roughness:.2,transparent:true,opacity:.85
    })
   );
-  bar.position.set(x,2.5,0);
-  wallGroup.add(bar);
- }
-
- wallGroup.position.set(0,0,-8);
- scene.add(wallGroup);
- update();
-}
-
-function update(){
- document.getElementById('money').textContent=fmt(game.money);
- document.getElementById('speed').textContent=fmt(game.speed);
- document.getElementById('power').textContent=fmt(game.power);
- document.getElementById('rebirths').textContent=game.rebirths;
- document.getElementById('multi').textContent='x'+(game.rebirths+1);
- document.getElementById('zoneNumber').textContent=game.zone;
-
- document.getElementById('wallName').textContent=
-  game.unlocked?'Zona completada':
-  'Barrera '+game.wall+' / '+wallCount(game.zone);
-
- document.getElementById('hp').textContent=
-  game.unlocked?'Desbloqueada':
-  fmt(Math.max(0,game.maxHP-game.damage));
-
- document.getElementById('inner').style.width=
-  game.unlocked?'0%':
-  Math.max(0,100*(1-game.damage/game.maxHP))+'%';
-
- document.getElementById('status').textContent=
-  'Daño automático: '+fmt(game.power*(game.rebirths+1))+'/s';
-
- const speedCost=Math.floor(100*Math.pow(1.65,game.speed-1));
- const powerCost=Math.floor(100*Math.pow(1.8,game.power-1));
-
- document.getElementById('speedBtn').textContent=
-  'Mejorar estela ($'+fmt(speedCost)+')';
-
- document.getElementById('powerBtn').textContent=
-  'Mejorar poder ($'+fmt(powerCost)+')';
-
- const rebirthCost=Math.floor(500*Math.pow(2.1,game.rebirths));
-
- document.getElementById('rebirthBtn').textContent=
-  game.rebirths>=50?'Máximo de renacimientos':
-  'Renacer (poder '+fmt(rebirthCost)+')';
-
- document.getElementById('rebirthBtn').disabled=
-  game.rebirths>=50||game.power<rebirthCost;
-
- document.getElementById('nextBtn').disabled=!game.unlocked;
-}
-
-function breakWall(){
- if(game.wall<wallCount(game.zone)){
-  game.wall++;
-  createWall();
-  document.getElementById('message').textContent=
-   '¡Barrera destruida! Sigue avanzando.';
- }else{
-  game.unlocked=true;
-  document.getElementById('message').textContent=
-   '¡Zona desbloqueada! Ya puedes avanzar.';
-  update();
+  hologram.position.set(sx,1.45,z);
+  scene.add(hologram);
+  plots.push({hologram});
  }
 }
 
-// Mejoras
-document.getElementById('speedBtn').onclick=()=>{
- const cost=Math.floor(100*Math.pow(1.65,game.speed-1));
- if(game.money>=cost){
-  game.money-=cost;
-  game.speed++;
-  update();
- }else{
-  document.getElementById('message').textContent='No tienes suficiente dinero.';
+for(let i=0;i<16;i++){
+ const a=i/16*Math.PI*2;
+ glow(Math.cos(a)*19,.35,Math.sin(a)*19,.17,
+      i%2?0x37e7ff:0xff4fba);
+}
+
+// BARRERA
+const barrierGroup=new THREE.Group();
+scene.add(barrierGroup);
+
+function buildWall(){
+ while(barrierGroup.children.length){
+  const child=barrierGroup.children[0];
+  barrierGroup.remove(child);
+  child.geometry?.dispose();
+  if(child.material)child.material.dispose();
+ }
+
+ const hue=(state.zone*37)%360;
+ const color=new THREE.Color().setHSL(hue/360,.7,.48);
+
+ const wall=new THREE.Mesh(
+  new THREE.BoxGeometry(12,5,.65),
+  new THREE.MeshStandardMaterial({
+   color,metalness:.6,roughness:.25,
+   emissive:color,emissiveIntensity:.65,
+   transparent:true,opacity:.88
+  })
+ );
+ wall.position.set(0,2.5,-9);
+ wall.castShadow=true;
+ barrierGroup.add(wall);
+
+ for(let x=-5.3;x<=5.31;x+=1.5){
+  const beam=new THREE.Mesh(
+   new THREE.BoxGeometry(.07,5.3,.09),
+   new THREE.MeshBasicMaterial({color:0x9ceeff})
+  );
+  beam.position.set(x,2.5,-8.6);
+  barrierGroup.add(beam);
+ }
+
+ const top=new THREE.Mesh(
+  new THREE.BoxGeometry(12.5,.18,.9),
+  new THREE.MeshBasicMaterial({color:0x37e7ff})
+ );
+ top.position.set(0,5.15,-9);
+ barrierGroup.add(top);
+}
+
+function resetWall(){
+ state.wallHp=wallHealth(state.zone,state.wall);
+ state.wallMax=state.wallHp;
+ buildWall();
+ updateUI();
+}
+buildWall();
+
+// CONTROLES
+let keys={};
+let velocityY=0;
+let onGround=true;
+let camYaw=0;
+let camPitch=.24;
+let camDist=10;
+let drag=false;
+let lastX=0,lastY=0;
+
+addEventListener('keydown',e=>{
+ keys[e.code]=true;
+ if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();
+});
+
+addEventListener('keyup',e=>keys[e.code]=false);
+renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
+
+renderer.domElement.addEventListener('mousedown',e=>{
+ if(e.button===2){
+  drag=true;
+  lastX=e.clientX;
+  lastY=e.clientY;
+ }
+});
+
+addEventListener('mouseup',e=>{
+ if(e.button===2)drag=false;
+});
+
+addEventListener('mousemove',e=>{
+ if(drag){
+  camYaw-=(e.clientX-lastX)*.006;
+  camPitch=Math.max(-.05,Math.min(.9,camPitch+(e.clientY-lastY)*.004));
+  lastX=e.clientX;
+  lastY=e.clientY;
+ }
+});
+
+renderer.domElement.addEventListener('wheel',e=>{
+ camDist=Math.max(5,Math.min(19,camDist+e.deltaY*.009));
+},{passive:true});
+
+// INTERFAZ
+function updateUI(){
+ $('money').textContent='$'+fmt(state.money);
+ $('power').textContent=fmt(state.power*(state.rebirth+1));
+ $('zone').textContent=state.zone+' / 30';
+ $('rebirth').textContent=state.rebirth+' / 50';
+
+ $('speedLevel').textContent='Nivel '+state.speed;
+ $('hackLevel').textContent='Nivel '+state.hack;
+ $('speedCost').textContent=fmt(speedCost());
+ $('hackCost').textContent=fmt(hackCost());
+
+ $('heroCount').textContent=state.heroes.length+' / '+state.capacity;
+ $('wallName').textContent='Zona '+state.zone+' · Barrera '+(state.wall+1);
+ $('wallHp').textContent='BARRERA · '+fmt(state.wallHp)+' HP';
+
+ $('wallFill').style.width=
+  (state.wallMax?state.wallHp/state.wallMax*100:0)+'%';
+
+ $('zoneProgress').style.width=
+  (state.wall/wallCount(state.zone)*100)+'%';
+
+ $('rebirthBtn').textContent=
+  'Renacer · requisito: '+fmt(rebirthNeed());
+
+ $('capacityBtn').textContent=
+  state.capacity>=5?'Capacidad máxima':
+  'Ampliar capacidad · $'+fmt(capCost());
+
+ $('capacityBtn').disabled=
+  state.capacity>=5||state.money<capCost();
+
+ $('speedBtn').disabled=state.money<speedCost();
+ $('hackBtn').disabled=state.money<hackCost();
+ $('nextBtn').disabled=state.wall<wallCount(state.zone);
+ $('heroBtn').disabled=
+  state.heroClaimed||state.heroes.length>=state.capacity;
+}
+
+function addMoney(n){
+ state.money+=n;
+ updateUI();
+}
+
+$('speedBtn').onclick=()=>{
+ const c=speedCost();
+ if(state.money>=c){
+  state.money-=c;
+  state.speed++;
+  updateUI();
+  toast('Estela mejorada');
  }
 };
 
-document.getElementById('powerBtn').onclick=()=>{
- const cost=Math.floor(100*Math.pow(1.8,game.power-1));
- if(game.money>=cost){
-  game.money-=cost;
-  game.power++;
-  update();
- }else{
-  document.getElementById('message').textContent='No tienes suficiente dinero.';
+$('hackBtn').onclick=()=>{
+ const c=hackCost();
+ if(state.money>=c){
+  state.money-=c;
+  state.hack++;
+  updateUI();
+  toast('Poder de hackeo mejorado');
  }
 };
 
-// Renacimientos
-document.getElementById('rebirthBtn').onclick=()=>{
- const cost=Math.floor(500*Math.pow(2.1,game.rebirths));
- if(game.rebirths<50&&game.power>=cost){
-  game.rebirths++;
-  game.power=1;
-  document.getElementById('message').textContent='¡Renacimiento conseguido!';
-  update();
+$('capacityBtn').onclick=()=>{
+ const c=capCost();
+ if(state.capacity<5&&state.money>=c){
+  state.money-=c;
+  state.capacity++;
+  updateUI();
+  toast('Capacidad ampliada');
  }
 };
 
-// Siguiente zona
-document.getElementById('nextBtn').onclick=()=>{
- if(!game.unlocked)return;
+$('heroBtn').onclick=()=>{
+ if(!state.heroClaimed&&state.heroes.length<state.capacity){
+  state.heroClaimed=true;
+  state.heroes.push({
+   income:25*state.zone,
+   name:'Héroe '+(state.heroes.length+1)
+  });
+  updateUI();
+  toast('Héroe añadido a tu base');
+ }
+};
 
- if(game.zone>=30){
-  document.getElementById('message').textContent='¡Has completado las 30 zonas!';
+$('rebirthBtn').onclick=()=>{
+ const need=rebirthNeed();
+
+ if(state.rebirth>=50){
+  toast('Has alcanzado el máximo de renacimientos');
   return;
  }
 
- game.zone++;
- game.wall=1;
- player.position.set(0,0,7);
- createWall();
+ if(state.money<need){
+  toast('Te faltan $'+fmt(need-state.money));
+  return;
+ }
 
- document.getElementById('message').textContent=
-  'Bienvenido a la zona '+game.zone+'.';
+ // El renacimiento solo reinicia el poder acumulado.
+ // Conserva dinero restante, zona, mejoras y héroes.
+ state.money-=need;
+ state.power=1;
+ state.rebirth++;
+ resetWall();
+ toast('Renacimiento completado: multiplicador x'+(state.rebirth+1));
 };
 
-// Controles
-const keys={};
+$('nextBtn').onclick=()=>{
+ if(state.wall>=wallCount(state.zone)&&state.zone<30){
+  state.zone++;
+  state.wall=0;
+  player.position.set(0,0,7);
+  resetWall();
+  toast('Zona '+state.zone+' desbloqueada');
+ }else if(state.zone===30){
+  toast('Has llegado a la última zona');
+ }
+};
 
-addEventListener('keydown',e=>{
- keys[e.key.toLowerCase()]=true;
-});
+$('baseBtn').onclick=()=>{
+ player.position.set(0,0,7);
+ toast('Has vuelto a tu base');
+};
 
-addEventListener('keyup',e=>{
- keys[e.key.toLowerCase()]=false;
-});
+$('closeModal').onclick=()=>{
+ $('modal').style.display='none';
+};
 
-const clock=new THREE.Clock();
-let moneyTimer=0;
+// BUCLE PRINCIPAL
+let last=performance.now();
+let incomeTick=0;
 
-function animate(){
+function animate(now){
  requestAnimationFrame(animate);
- const dt=Math.min(clock.getDelta(),.05);
+ const dt=Math.min((now-last)/1000,.04);
+ last=now;
 
- let dx=0,dz=0;
+ const speed=5+state.speed*.65;
+ const forward=(keys.KeyW?1:0)-(keys.KeyS?1:0);
+ const side=(keys.KeyD?1:0)-(keys.KeyA?1:0);
 
- if(keys.w||keys.arrowup)dz-=1;
- if(keys.s||keys.arrowdown)dz+=1;
- if(keys.a||keys.arrowleft)dx-=1;
- if(keys.d||keys.arrowright)dx+=1;
+ const dir=new THREE.Vector3(side,0,-forward);
 
- const len=Math.hypot(dx,dz);
-
- if(len>0){
-  dx/=len;
-  dz/=len;
-
-  player.position.x+=dx*game.speed*4*dt;
-  player.position.z+=dz*game.speed*4*dt;
-
-  player.position.x=THREE.MathUtils.clamp(player.position.x,-7,7);
-  player.position.z=THREE.MathUtils.clamp(player.position.z,-9,9);
-
-  player.rotation.y=Math.atan2(dx,dz);
+ if(dir.length()>0){
+  dir.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),camYaw);
+  player.position.addScaledVector(dir,speed*dt);
+  player.rotation.y=Math.atan2(dir.x,dir.z);
  }
 
- // Hackeo automático al acercarse a la barrera
- if(!game.unlocked){
-  const distance=Math.hypot(
-   player.position.x,player.position.z+8
-  );
-
-  if(distance<4.5){
-   game.damage+=game.power*(game.rebirths+1)*dt;
-
-   if(game.damage>=game.maxHP){
-    breakWall();
-   }
-  }
+ if(keys.Space&&onGround){
+  velocityY=7;
+  onGround=false;
  }
 
- // Dinero provisional del héroe inicial
- moneyTimer+=dt;
+ velocityY-=18*dt;
+ player.position.y+=velocityY*dt;
 
- if(moneyTimer>=1){
-  game.money+=Math.floor(moneyTimer);
-  moneyTimer=0;
+ if(player.position.y<=0){
+  player.position.y=0;
+  velocityY=0;
+  onGround=true;
  }
 
- const desired=new THREE.Vector3(
+ player.position.x=Math.max(-30,Math.min(30,player.position.x));
+ player.position.z=Math.max(-35,Math.min(24,player.position.z));
+
+ const target=new THREE.Vector3(
   player.position.x,
-  player.position.y+6,
-  player.position.z+11
+  player.position.y+1.2,
+  player.position.z
  );
 
- camera.position.lerp(desired,.08);
- camera.lookAt(
-  player.position.x,1,player.position.z-3
- );
+ const offset=new THREE.Vector3(
+  Math.sin(camYaw)*Math.cos(camPitch),
+  Math.sin(camPitch)+.22,
+  Math.cos(camYaw)*Math.cos(camPitch)
+ ).multiplyScalar(camDist);
 
- update();
+ camera.position.copy(target).add(offset);
+ camera.lookAt(target);
+
+ // HACK AUTOMÁTICO POR PROXIMIDAD
+ const nearWall=
+  player.position.distanceTo(new THREE.Vector3(0,0,-7.2))<3.2;
+
+ if(nearWall&&state.wall<wallCount(state.zone)){
+  const damage=
+   state.power*(state.rebirth+1)*(1+state.hack*.35)*dt*4;
+
+  state.wallHp=Math.max(0,state.wallHp-damage);
+  $('prompt').textContent='HACKEANDO AUTOMÁTICAMENTE';
+
+  if(state.wallHp<=0){
+   state.power+=Math.max(
+    1,Math.floor(state.zone*state.wallMax*.001)
+   );
+
+   state.money+=Math.max(50,state.wallMax*.12);
+   state.wall++;
+
+   if(state.wall<wallCount(state.zone)){
+    resetWall();
+   }else{
+    toast('Zona despejada. Ya puedes avanzar.');
+   }
+
+   updateUI();
+  }else{
+   updateUI();
+  }
+ }else{
+  $('prompt').textContent=
+   'Acércate a la barrera para empezar a hackear';
+ }
+
+ // INGRESOS DE LOS HÉROES
+ incomeTick+=dt;
+ if(incomeTick>=1){
+  incomeTick=0;
+  const income=state.heroes.reduce((a,h)=>a+h.income,0);
+  if(income)addMoney(income);
+ }
+
+ plots.forEach((p,i)=>{
+  p.hologram.rotation.y+=dt*(.7+i*.02);
+  p.hologram.position.y=1.4+Math.sin(now*.001+i)*.12;
+ });
+
+ playerRing.rotation.z+=dt*.8;
  renderer.render(scene,camera);
 }
 
-camera.position.set(0,7,18);
-createWall();
-animate();
+requestAnimationFrame(animate);
 
 addEventListener('resize',()=>{
  camera.aspect=innerWidth/innerHeight;
  camera.updateProjectionMatrix();
  renderer.setSize(innerWidth,innerHeight);
 });
+
+resetWall();
+updateUI();
+})();
 </script>
 </body>
 </html>
+
