@@ -113,7 +113,7 @@ button{font-size:11px;padding:8px}
  <div class="box panel">
   <h2>HACKEO POR MARVEL</h2>
   <p>Muévete por el escenario, rompe las barreras y desbloquea nuevas zonas. Consigue héroes para generar dinero y mejora tus estadísticas.</p>
-  <p>Esta es una primera versión jugable. Todavía no incluye multijugador real ni modelos oficiales de Marvel.</p>
+  <p>Esta versión mejora los gráficos, pero todavía no incluye multijugador real ni modelos oficiales de Marvel.</p>
   <button id="closeModal">EMPEZAR A JUGAR</button>
  </div>
 </div>
@@ -165,50 +165,99 @@ function toast(msg){
 
 // ESCENA 3D
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x070d1d);
-scene.fog=new THREE.Fog(0x070d1d,30,105);
+scene.background=new THREE.Color(0x080e1c);
+scene.fog=new THREE.FogExp2(0x080e1c,.009);
 
 const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,500);
-const renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+
+const renderer=new THREE.WebGLRenderer({
+ antialias:true,
+ powerPreference:'high-performance'
+});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.15;
 $('game').appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0x9bdcff,0x15152b,2));
+// ILUMINACIÓN
+scene.add(new THREE.HemisphereLight(0xb8e5ff,0x101323,1.8));
 
-const light=new THREE.DirectionalLight(0xffffff,2.4);
-light.position.set(-15,28,12);
+const light=new THREE.DirectionalLight(0xd9edff,3.2);
+light.position.set(-18,30,16);
 light.castShadow=true;
+light.shadow.mapSize.set(2048,2048);
+light.shadow.camera.left=-35;
+light.shadow.camera.right=35;
+light.shadow.camera.top=35;
+light.shadow.camera.bottom=-35;
+light.shadow.bias=-.0002;
 scene.add(light);
 
+const blueLight=new THREE.PointLight(0x168cff,85,45,2);
+blueLight.position.set(-12,7,-5);
+scene.add(blueLight);
+
+const pinkLight=new THREE.PointLight(0xff35ae,65,35,2);
+pinkLight.position.set(15,6,12);
+scene.add(pinkLight);
+
+// SUELO
 const floor=new THREE.Mesh(
  new THREE.PlaneGeometry(250,250),
- new THREE.MeshStandardMaterial({color:0x101a30,metalness:.55,roughness:.65})
+ new THREE.MeshStandardMaterial({
+  color:0x18243a,
+  metalness:.72,
+  roughness:.32
+ })
 );
 floor.rotation.x=-Math.PI/2;
 floor.receiveShadow=true;
 scene.add(floor);
 
-const grid=new THREE.GridHelper(250,100,0x1b86ad,0x172a48);
-grid.position.y=.025;
+const grid=new THREE.GridHelper(250,100,0x2389bd,0x243b59);
+grid.position.y=.035;
 scene.add(grid);
 
-const ringFloor=new THREE.Mesh(
- new THREE.TorusGeometry(17,.13,8,100),
- new THREE.MeshBasicMaterial({color:0x1aaed4})
+const centralPlatform=new THREE.Mesh(
+ new THREE.CylinderGeometry(23,24,.35,96),
+ new THREE.MeshStandardMaterial({
+  color:0x101c32,
+  metalness:.85,
+  roughness:.24
+ })
 );
-ringFloor.rotation.x=Math.PI/2;
-ringFloor.position.y=.08;
-scene.add(ringFloor);
+centralPlatform.position.set(0,-.05,0);
+centralPlatform.receiveShadow=true;
+scene.add(centralPlatform);
 
+const platformRing=new THREE.Mesh(
+ new THREE.TorusGeometry(23,.16,12,160),
+ new THREE.MeshStandardMaterial({
+  color:0x37e7ff,
+  metalness:.8,
+  roughness:.18,
+  emissive:0x087baf,
+  emissiveIntensity:2
+ })
+);
+platformRing.rotation.x=Math.PI/2;
+platformRing.position.y=.18;
+scene.add(platformRing);
+
+// OBJETOS Y LUCES
 function box(w,h,d,color,x,y,z,em=0){
  const mesh=new THREE.Mesh(
   new THREE.BoxGeometry(w,h,d),
   new THREE.MeshStandardMaterial({
-   color,metalness:.35,roughness:.5,
-   emissive:color,emissiveIntensity:em
+   color,
+   metalness:.78,
+   roughness:.27,
+   emissive:color,
+   emissiveIntensity:em
   })
  );
  mesh.position.set(x,y,z);
@@ -220,7 +269,7 @@ function box(w,h,d,color,x,y,z,em=0){
 
 function glow(x,y,z,r,color){
  const mesh=new THREE.Mesh(
-  new THREE.SphereGeometry(r,16,12),
+  new THREE.SphereGeometry(r,20,16),
   new THREE.MeshBasicMaterial({color})
  );
  mesh.position.set(x,y,z);
@@ -228,15 +277,84 @@ function glow(x,y,z,r,color){
  return mesh;
 }
 
+// CIUDAD FUTURISTA
+function createBuilding(x,z,h,w,d,color){
+ const building=new THREE.Group();
+
+ const material=new THREE.MeshStandardMaterial({
+  color,
+  metalness:.8,
+  roughness:.3
+ });
+
+ const base=new THREE.Mesh(
+  new THREE.BoxGeometry(w,h,d),
+  material
+ );
+ base.position.y=h/2;
+ base.castShadow=true;
+ base.receiveShadow=true;
+ building.add(base);
+
+ const edgeMaterial=new THREE.MeshStandardMaterial({
+  color:0x37cfff,
+  emissive:0x087ca8,
+  emissiveIntensity:1.8,
+  metalness:.6,
+  roughness:.2
+ });
+
+ for(let y=1;y<h;y+=2.5){
+  const strip=new THREE.Mesh(
+   new THREE.BoxGeometry(w+.04,.07,d+.04),
+   edgeMaterial
+  );
+  strip.position.y=y;
+  building.add(strip);
+ }
+
+ const roof=new THREE.Mesh(
+  new THREE.BoxGeometry(w+.35,.2,d+.35),
+  new THREE.MeshStandardMaterial({
+   color:0x344d6d,
+   metalness:.9,
+   roughness:.2
+  })
+ );
+ roof.position.y=h+.1;
+ building.add(roof);
+
+ building.position.set(x,0,z);
+ scene.add(building);
+}
+
+for(let i=0;i<22;i++){
+ const side=i%2===0?-1:1;
+ const z=-35+Math.floor(i/2)*7;
+ const height=9+Math.random()*19;
+
+ createBuilding(
+  side*(25+Math.random()*12),
+  z,
+  height,
+  5+Math.random()*3,
+  5+Math.random()*3,
+  i%2?0x172c49:0x243650
+ );
+}
+
 // PERSONAJE
 const player=new THREE.Group();
 scene.add(player);
 
 const body=new THREE.Mesh(
- new THREE.CapsuleGeometry(.48,.95,5,10),
+ new THREE.CapsuleGeometry(.48,.95,8,16),
  new THREE.MeshStandardMaterial({
-  color:0x1e91bd,metalness:.4,roughness:.35,
-  emissive:0x07334d,emissiveIntensity:.4
+  color:0x1e91bd,
+  metalness:.55,
+  roughness:.28,
+  emissive:0x07334d,
+  emissiveIntensity:.4
  })
 );
 body.position.y=1.1;
@@ -244,8 +362,11 @@ body.castShadow=true;
 player.add(body);
 
 const head=new THREE.Mesh(
- new THREE.SphereGeometry(.36,18,14),
- new THREE.MeshStandardMaterial({color:0xe1c6aa,roughness:.8})
+ new THREE.SphereGeometry(.36,24,20),
+ new THREE.MeshStandardMaterial({
+  color:0xe1c6aa,
+  roughness:.75
+ })
 );
 head.position.y=1.95;
 head.castShadow=true;
@@ -253,14 +374,24 @@ player.add(head);
 
 const visor=new THREE.Mesh(
  new THREE.BoxGeometry(.48,.12,.12),
- new THREE.MeshBasicMaterial({color:0x37e7ff})
+ new THREE.MeshStandardMaterial({
+  color:0x37e7ff,
+  emissive:0x37e7ff,
+  emissiveIntensity:2.5,
+  metalness:.4,
+  roughness:.2
+ })
 );
 visor.position.set(0,2,.31);
 player.add(visor);
 
 const playerRing=new THREE.Mesh(
- new THREE.TorusGeometry(.65,.035,8,40),
- new THREE.MeshBasicMaterial({color:0x37e7ff})
+ new THREE.TorusGeometry(.65,.035,12,48),
+ new THREE.MeshStandardMaterial({
+  color:0x37e7ff,
+  emissive:0x00bfff,
+  emissiveIntensity:2
+ })
 );
 playerRing.rotation.x=Math.PI/2;
 playerRing.position.y=.06;
@@ -268,7 +399,7 @@ player.add(playerRing);
 
 player.position.set(0,0,7);
 
-// TRES BASES JUNTAS, SIN CRISTALES
+// TRES BASES
 const plots=[];
 
 for(let i=0;i<3;i++){
@@ -278,8 +409,12 @@ for(let i=0;i<3;i++){
 
  const trim=new THREE.Mesh(
   new THREE.BoxGeometry(12.2,.08,10.2),
-  new THREE.MeshBasicMaterial({
-   color:[0x37e7ff,0xff4fba,0x9d7cff][i]
+  new THREE.MeshStandardMaterial({
+   color:[0x37e7ff,0xff4fba,0x9d7cff][i],
+   emissive:[0x37e7ff,0xff4fba,0x9d7cff][i],
+   emissiveIntensity:1.5,
+   metalness:.7,
+   roughness:.2
   })
  );
  trim.position.set(x,.46,z);
@@ -294,9 +429,13 @@ for(let i=0;i<3;i++){
   const hologram=new THREE.Mesh(
    new THREE.OctahedronGeometry(.48,1),
    new THREE.MeshStandardMaterial({
-    color:0x37e7ff,emissive:0x087ca0,
-    emissiveIntensity:1.2,metalness:.5,
-    roughness:.2,transparent:true,opacity:.85
+    color:0x37e7ff,
+    emissive:0x087ca0,
+    emissiveIntensity:1.5,
+    metalness:.7,
+    roughness:.18,
+    transparent:true,
+    opacity:.85
    })
   );
   hologram.position.set(sx,1.45,z);
@@ -305,13 +444,13 @@ for(let i=0;i<3;i++){
  }
 }
 
-for(let i=0;i<16;i++){
- const a=i/16*Math.PI*2;
+for(let i=0;i<32;i++){
+ const a=i/32*Math.PI*2;
  glow(Math.cos(a)*19,.35,Math.sin(a)*19,.17,
       i%2?0x37e7ff:0xff4fba);
 }
 
-// BARRERA
+// BARRERA DE ENERGÍA
 const barrierGroup=new THREE.Group();
 scene.add(barrierGroup);
 
@@ -324,35 +463,65 @@ function buildWall(){
  }
 
  const hue=(state.zone*37)%360;
- const color=new THREE.Color().setHSL(hue/360,.7,.48);
+ const color=new THREE.Color().setHSL(hue/360,.85,.55);
 
- const wall=new THREE.Mesh(
-  new THREE.BoxGeometry(12,5,.65),
-  new THREE.MeshStandardMaterial({
-   color,metalness:.6,roughness:.25,
-   emissive:color,emissiveIntensity:.65,
-   transparent:true,opacity:.88
+ const frameMat=new THREE.MeshStandardMaterial({
+  color:0x263e59,
+  metalness:.95,
+  roughness:.18
+ });
+
+ const leftFrame=new THREE.Mesh(
+  new THREE.BoxGeometry(.45,6,.8),frameMat
+ );
+ leftFrame.position.set(-6,3,-9);
+ leftFrame.castShadow=true;
+ barrierGroup.add(leftFrame);
+
+ const rightFrame=leftFrame.clone();
+ rightFrame.position.x=6;
+ barrierGroup.add(rightFrame);
+
+ const energy=new THREE.Mesh(
+  new THREE.PlaneGeometry(11.5,5.5),
+  new THREE.MeshPhysicalMaterial({
+   color,
+   emissive:color,
+   emissiveIntensity:1.5,
+   metalness:.35,
+   roughness:.12,
+   transparent:true,
+   opacity:.48,
+   side:THREE.DoubleSide
   })
  );
- wall.position.set(0,2.5,-9);
- wall.castShadow=true;
- barrierGroup.add(wall);
+ energy.position.set(0,2.8,-8.95);
+ barrierGroup.add(energy);
 
- for(let x=-5.3;x<=5.31;x+=1.5){
+ for(let x=-5.3;x<=5.31;x+=1.05){
   const beam=new THREE.Mesh(
-   new THREE.BoxGeometry(.07,5.3,.09),
-   new THREE.MeshBasicMaterial({color:0x9ceeff})
+   new THREE.BoxGeometry(.045,5.5,.07),
+   new THREE.MeshBasicMaterial({color:0x8ceeff})
   );
-  beam.position.set(x,2.5,-8.6);
+  beam.position.set(x,2.8,-8.75);
   barrierGroup.add(beam);
  }
 
  const top=new THREE.Mesh(
-  new THREE.BoxGeometry(12.5,.18,.9),
-  new THREE.MeshBasicMaterial({color:0x37e7ff})
+  new THREE.BoxGeometry(12.5,.2,1),
+  new THREE.MeshStandardMaterial({
+   color:0x37e7ff,
+   emissive:0x00bfff,
+   emissiveIntensity:3,
+   metalness:.7,
+   roughness:.15
+  })
  );
- top.position.set(0,5.15,-9);
+ top.position.set(0,5.65,-9);
  barrierGroup.add(top);
+
+ barrierGroup.userData.energy=energy;
+ barrierGroup.userData.top=top;
 }
 
 function resetWall(){
@@ -505,8 +674,6 @@ $('rebirthBtn').onclick=()=>{
   return;
  }
 
- // El renacimiento solo reinicia el poder acumulado.
- // Conserva dinero restante, zona, mejoras y héroes.
  state.money-=need;
  state.power=1;
  state.rebirth++;
@@ -538,6 +705,7 @@ $('closeModal').onclick=()=>{
 // BUCLE PRINCIPAL
 let last=performance.now();
 let incomeTick=0;
+let uiTick=0;
 
 function animate(now){
  requestAnimationFrame(animate);
@@ -588,7 +756,7 @@ function animate(now){
  camera.position.copy(target).add(offset);
  camera.lookAt(target);
 
- // HACK AUTOMÁTICO POR PROXIMIDAD
+ // HACKEO AUTOMÁTICO
  const nearWall=
   player.position.distanceTo(new THREE.Vector3(0,0,-7.2))<3.2;
 
@@ -615,7 +783,11 @@ function animate(now){
 
    updateUI();
   }else{
-   updateUI();
+   uiTick+=dt;
+   if(uiTick>.12){
+    uiTick=0;
+    updateUI();
+   }
   }
  }else{
   $('prompt').textContent=
@@ -630,12 +802,26 @@ function animate(now){
   if(income)addMoney(income);
  }
 
+ // ANIMACIÓN DE HOLOGRAMAS
  plots.forEach((p,i)=>{
   p.hologram.rotation.y+=dt*(.7+i*.02);
   p.hologram.position.y=1.4+Math.sin(now*.001+i)*.12;
  });
 
+ // ANIMACIÓN DE LA BARRERA
+ if(barrierGroup.userData.energy){
+  const energy=barrierGroup.userData.energy;
+  energy.material.opacity=.38+Math.sin(now*.004)*.12;
+  energy.material.emissiveIntensity=1.3+Math.sin(now*.003)*.7;
+  energy.scale.x=1+Math.sin(now*.002)*.015;
+ }
+
  playerRing.rotation.z+=dt*.8;
+ platformRing.rotation.z+=dt*.08;
+
+ blueLight.position.x=-12+Math.sin(now*.0005)*4;
+ pinkLight.position.x=15+Math.sin(now*.0007)*4;
+
  renderer.render(scene,camera);
 }
 
