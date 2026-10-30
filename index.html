@@ -1,0 +1,440 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hackeo por Marvel</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:#101827;color:white;font-family:Arial}
+canvas{display:block}
+#ui{
+ position:fixed;top:12px;left:12px;width:280px;padding:15px;
+ background:#101a2bee;border:1px solid #46617f;border-radius:13px;z-index:2
+}
+h2{font-size:20px;color:#e62429;margin:0 0 12px}
+.stat{margin:8px 0;font-size:14px}
+button{
+ width:100%;padding:11px;margin-top:7px;border:0;border-radius:8px;
+ background:#c51d29;color:white;font-weight:bold;cursor:pointer
+}
+button:hover{background:#ed2939}
+button:disabled{opacity:.4;cursor:not-allowed}
+#wall{background:#26364d;padding:10px;border-radius:8px;margin-top:12px}
+#outer{height:13px;background:#536176;border-radius:10px;overflow:hidden;margin-top:7px}
+#inner{height:100%;width:100%;background:#e62429}
+#zone{
+ position:fixed;top:12px;right:12px;background:#101a2bee;
+ padding:12px;border-radius:10px;z-index:2
+}
+#help{
+ position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
+ background:#101a2bee;padding:10px 15px;border-radius:10px;
+ font-size:13px;z-index:2;text-align:center
+}
+#message{font-size:12px;color:#b5d5ed;margin-top:9px;min-height:25px}
+</style>
+</head>
+<body>
+
+<div id="ui">
+<h2>HACKEO POR MARVEL</h2>
+<div class="stat">Dinero: $<b id="money">1K</b></div>
+<div class="stat">Estela: <b id="speed">1</b></div>
+<div class="stat">Poder de hackeo: <b id="power">1</b></div>
+<div class="stat">Renacimientos: <b id="rebirths">0</b></div>
+<div class="stat">Multiplicador: <b id="multi">x1</b></div>
+
+<div id="wall">
+<b id="wallName">Barrera 1</b>
+<div class="stat">Vida: <b id="hp">50</b></div>
+<div id="outer"><div id="inner"></div></div>
+<div class="stat" id="status">Acércate a la barrera.</div>
+</div>
+
+<button id="speedBtn">Mejorar estela</button>
+<button id="powerBtn">Mejorar poder</button>
+<button id="rebirthBtn">Renacer</button>
+<button id="nextBtn" disabled>Siguiente zona</button>
+<div id="message">Acércate a la barrera para hackearla.</div>
+</div>
+
+<div id="zone">ZONA <b id="zoneNumber">1</b> / 30</div>
+<div id="help">WASD o flechas para moverte · Acércate a la barrera para hackear</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x91c9e8);
+scene.fog=new THREE.Fog(0x91c9e8,35,100);
+
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,300);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x506078,2));
+
+const sun=new THREE.DirectionalLight(0xffffff,2);
+sun.position.set(-8,15,10);
+sun.castShadow=true;
+scene.add(sun);
+
+// Suelo
+const ground=new THREE.Mesh(
+ new THREE.PlaneGeometry(100,150),
+ new THREE.MeshStandardMaterial({color:0x263d53})
+);
+ground.rotation.x=-Math.PI/2;
+ground.position.z=-35;
+ground.receiveShadow=true;
+scene.add(ground);
+
+const grid=new THREE.GridHelper(100,50,0x4d829f,0x3a5c75);
+grid.position.set(0,.02,-35);
+scene.add(grid);
+
+// Jugador
+const player=new THREE.Group();
+
+const body=new THREE.Mesh(
+ new THREE.CapsuleGeometry(.45,.9,5,10),
+ new THREE.MeshStandardMaterial({color:0xe62429,metalness:.3,roughness:.3})
+);
+body.position.y=1;
+body.castShadow=true;
+player.add(body);
+
+const head=new THREE.Mesh(
+ new THREE.SphereGeometry(.33,16,16),
+ new THREE.MeshStandardMaterial({color:0xffd9c5})
+);
+head.position.y=1.8;
+player.add(head);
+
+player.position.set(0,0,7);
+scene.add(player);
+
+// Bases con vigas y cristales
+const crystalMat=new THREE.MeshStandardMaterial({
+ color:0x42eaff,emissive:0x087caa,emissiveIntensity:1.3
+});
+
+function createBase(x){
+ const group=new THREE.Group();
+ const metal=new THREE.MeshStandardMaterial({color:0x344e6b,metalness:.7});
+
+ function beam(a,b){
+  const start=new THREE.Vector3(...a);
+  const end=new THREE.Vector3(...b);
+  const direction=new THREE.Vector3().subVectors(end,start);
+
+  const mesh=new THREE.Mesh(
+   new THREE.CylinderGeometry(.13,.13,direction.length(),8),metal
+  );
+
+  mesh.position.copy(start).add(end).multiplyScalar(.5);
+  mesh.quaternion.setFromUnitVectors(
+   new THREE.Vector3(0,1,0),direction.normalize()
+  );
+  mesh.castShadow=true;
+  group.add(mesh);
+ }
+
+ beam([-2,0,-1],[2,0,-1]);
+ beam([-2,0,1],[2,0,1]);
+ beam([-2,0,-1],[-2,0,1]);
+ beam([2,0,-1],[2,0,1]);
+ beam([-2,0,-1],[0,3,0]);
+ beam([2,0,-1],[0,3,0]);
+ beam([-2,0,1],[0,3,0]);
+ beam([2,0,1],[0,3,0]);
+ beam([0,3,0],[0,0,0]);
+
+ const crystal=new THREE.Mesh(
+  new THREE.OctahedronGeometry(.6),crystalMat
+ );
+ crystal.position.set(0,1.5,0);
+ group.add(crystal);
+
+ group.position.set(x,0,10);
+ scene.add(group);
+}
+
+createBase(-12);
+createBase(0);
+createBase(12);
+
+// Datos del juego
+const game={
+ zone:1,wall:1,money:1000,speed:1,power:1,
+ rebirths:0,damage:0,maxHP:50,unlocked:false
+};
+
+function fmt(n){
+ if(n>=1e18)return (n/1e18).toFixed(2)+' Qi';
+ if(n>=1e15)return (n/1e15).toFixed(2)+' Qa';
+ if(n>=1e12)return (n/1e12).toFixed(2)+' T';
+ if(n>=1e9)return (n/1e9).toFixed(2)+' B';
+ if(n>=1e6)return (n/1e6).toFixed(2)+' M';
+ if(n>=1e3)return (n/1e3).toFixed(2)+' K';
+ return Math.floor(n).toLocaleString('es-ES');
+}
+
+function wallCount(z){
+ return Math.min(z+2,10);
+}
+
+function firstHP(z){
+ if(z===5)return 1000000;
+ if(z<=4)return 50*Math.pow(20000,(z-1)/4);
+ if(z===6)return 100000000;
+ return 100000000*Math.pow(1e12,(z-6)/24);
+}
+
+function getHP(z,w){
+ if(z===5)return 1000000+(w-1)*500000;
+ return firstHP(z)*Math.pow(1.5,w-1);
+}
+
+let wallGroup;
+
+function createWall(){
+ if(wallGroup)scene.remove(wallGroup);
+
+ game.damage=0;
+ game.maxHP=getHP(game.zone,game.wall);
+ game.unlocked=false;
+
+ wallGroup=new THREE.Group();
+
+ const wall=new THREE.Mesh(
+  new THREE.BoxGeometry(9,5,.8),
+  new THREE.MeshStandardMaterial({
+   color:0x963fff,metalness:.4,roughness:.3,emissive:0x280052
+  })
+ );
+ wall.position.y=2.5;
+ wall.castShadow=true;
+ wallGroup.add(wall);
+
+ for(let x=-4;x<=4;x+=2){
+  const bar=new THREE.Mesh(
+   new THREE.BoxGeometry(.12,5.2,.95),
+   new THREE.MeshStandardMaterial({
+    color:0x4ceaff,emissive:0x087ca9
+   })
+  );
+  bar.position.set(x,2.5,0);
+  wallGroup.add(bar);
+ }
+
+ wallGroup.position.set(0,0,-8);
+ scene.add(wallGroup);
+ update();
+}
+
+function update(){
+ document.getElementById('money').textContent=fmt(game.money);
+ document.getElementById('speed').textContent=fmt(game.speed);
+ document.getElementById('power').textContent=fmt(game.power);
+ document.getElementById('rebirths').textContent=game.rebirths;
+ document.getElementById('multi').textContent='x'+(game.rebirths+1);
+ document.getElementById('zoneNumber').textContent=game.zone;
+
+ document.getElementById('wallName').textContent=
+  game.unlocked?'Zona completada':
+  'Barrera '+game.wall+' / '+wallCount(game.zone);
+
+ document.getElementById('hp').textContent=
+  game.unlocked?'Desbloqueada':
+  fmt(Math.max(0,game.maxHP-game.damage));
+
+ document.getElementById('inner').style.width=
+  game.unlocked?'0%':
+  Math.max(0,100*(1-game.damage/game.maxHP))+'%';
+
+ document.getElementById('status').textContent=
+  'Daño automático: '+fmt(game.power*(game.rebirths+1))+'/s';
+
+ const speedCost=Math.floor(100*Math.pow(1.65,game.speed-1));
+ const powerCost=Math.floor(100*Math.pow(1.8,game.power-1));
+
+ document.getElementById('speedBtn').textContent=
+  'Mejorar estela ($'+fmt(speedCost)+')';
+
+ document.getElementById('powerBtn').textContent=
+  'Mejorar poder ($'+fmt(powerCost)+')';
+
+ const rebirthCost=Math.floor(500*Math.pow(2.1,game.rebirths));
+
+ document.getElementById('rebirthBtn').textContent=
+  game.rebirths>=50?'Máximo de renacimientos':
+  'Renacer (poder '+fmt(rebirthCost)+')';
+
+ document.getElementById('rebirthBtn').disabled=
+  game.rebirths>=50||game.power<rebirthCost;
+
+ document.getElementById('nextBtn').disabled=!game.unlocked;
+}
+
+function breakWall(){
+ if(game.wall<wallCount(game.zone)){
+  game.wall++;
+  createWall();
+  document.getElementById('message').textContent=
+   '¡Barrera destruida! Sigue avanzando.';
+ }else{
+  game.unlocked=true;
+  document.getElementById('message').textContent=
+   '¡Zona desbloqueada! Ya puedes avanzar.';
+  update();
+ }
+}
+
+// Mejoras
+document.getElementById('speedBtn').onclick=()=>{
+ const cost=Math.floor(100*Math.pow(1.65,game.speed-1));
+ if(game.money>=cost){
+  game.money-=cost;
+  game.speed++;
+  update();
+ }else{
+  document.getElementById('message').textContent='No tienes suficiente dinero.';
+ }
+};
+
+document.getElementById('powerBtn').onclick=()=>{
+ const cost=Math.floor(100*Math.pow(1.8,game.power-1));
+ if(game.money>=cost){
+  game.money-=cost;
+  game.power++;
+  update();
+ }else{
+  document.getElementById('message').textContent='No tienes suficiente dinero.';
+ }
+};
+
+// Renacimientos
+document.getElementById('rebirthBtn').onclick=()=>{
+ const cost=Math.floor(500*Math.pow(2.1,game.rebirths));
+ if(game.rebirths<50&&game.power>=cost){
+  game.rebirths++;
+  game.power=1;
+  document.getElementById('message').textContent='¡Renacimiento conseguido!';
+  update();
+ }
+};
+
+// Siguiente zona
+document.getElementById('nextBtn').onclick=()=>{
+ if(!game.unlocked)return;
+
+ if(game.zone>=30){
+  document.getElementById('message').textContent='¡Has completado las 30 zonas!';
+  return;
+ }
+
+ game.zone++;
+ game.wall=1;
+ player.position.set(0,0,7);
+ createWall();
+
+ document.getElementById('message').textContent=
+  'Bienvenido a la zona '+game.zone+'.';
+};
+
+// Controles
+const keys={};
+
+addEventListener('keydown',e=>{
+ keys[e.key.toLowerCase()]=true;
+});
+
+addEventListener('keyup',e=>{
+ keys[e.key.toLowerCase()]=false;
+});
+
+const clock=new THREE.Clock();
+let moneyTimer=0;
+
+function animate(){
+ requestAnimationFrame(animate);
+ const dt=Math.min(clock.getDelta(),.05);
+
+ let dx=0,dz=0;
+
+ if(keys.w||keys.arrowup)dz-=1;
+ if(keys.s||keys.arrowdown)dz+=1;
+ if(keys.a||keys.arrowleft)dx-=1;
+ if(keys.d||keys.arrowright)dx+=1;
+
+ const len=Math.hypot(dx,dz);
+
+ if(len>0){
+  dx/=len;
+  dz/=len;
+
+  player.position.x+=dx*game.speed*4*dt;
+  player.position.z+=dz*game.speed*4*dt;
+
+  player.position.x=THREE.MathUtils.clamp(player.position.x,-7,7);
+  player.position.z=THREE.MathUtils.clamp(player.position.z,-9,9);
+
+  player.rotation.y=Math.atan2(dx,dz);
+ }
+
+ // Hackeo automático al acercarse a la barrera
+ if(!game.unlocked){
+  const distance=Math.hypot(
+   player.position.x,player.position.z+8
+  );
+
+  if(distance<4.5){
+   game.damage+=game.power*(game.rebirths+1)*dt;
+
+   if(game.damage>=game.maxHP){
+    breakWall();
+   }
+  }
+ }
+
+ // Dinero provisional del héroe inicial
+ moneyTimer+=dt;
+
+ if(moneyTimer>=1){
+  game.money+=Math.floor(moneyTimer);
+  moneyTimer=0;
+ }
+
+ const desired=new THREE.Vector3(
+  player.position.x,
+  player.position.y+6,
+  player.position.z+11
+ );
+
+ camera.position.lerp(desired,.08);
+ camera.lookAt(
+  player.position.x,1,player.position.z-3
+ );
+
+ update();
+ renderer.render(scene,camera);
+}
+
+camera.position.set(0,7,18);
+createWall();
+animate();
+
+addEventListener('resize',()=>{
+ camera.aspect=innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
